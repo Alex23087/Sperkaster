@@ -8,7 +8,7 @@ MELLOS_DIR := /home/perkelo/projects/other/MellOs
 
 .PHONY: all clean run $(OUT_DIR)/main.c
 
-all: $(OUT_DIR)/perkeng
+all: $(OUT_DIR)/juggleballs
 
 $(OUT_DIR)/main.c: $(SRC_DIR)/main.perk | $(OUT_DIR)
 	perkc --static $< -o $@
@@ -24,10 +24,10 @@ $(OUT_DIR):
 clean:
 	rm -rf $(OUT_DIR)
 
-$(OUT_DIR)/perkeng: $(OUT_FILES)
-	mkdir -p $(MELLOS_DIR)/shell/functions/perkeng
-	cp -r $(OUT_DIR)/* $(MELLOS_DIR)/shell/functions/perkeng/
+$(OUT_DIR)/juggleballs: $(OUT_FILES)
+	mkdir -p $(MELLOS_DIR)/shell/functions/juggleballs
+	cp -r $(OUT_DIR)/* $(MELLOS_DIR)/shell/functions/juggleballs/
 	cd $(MELLOS_DIR)/build && cmake .. && make
 
-run: $(OUT_DIR)/perkeng
+run: $(OUT_DIR)/juggleballs
 	cd $(MELLOS_DIR)/build && make run

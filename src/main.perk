@@ -1,8 +1,11 @@
 import_local "includes.h"
 open "geometry.perk"
 
-let hres: uint32_t = cast(uint32_t, 600)
+let hres: uint32_t = cast(uint32_t, 400)
 let vres: uint32_t = cast(uint32_t, 400)
+let pixel_size: float = 0.02
+let num_rays: int = 5
+let ticks: int = 0
 
 fun get_fb(w: Window*): Framebuffer* {
     let fb: Framebuffer* = cast(Framebuffer*, 0);
@@ -11,6 +14,7 @@ fun get_fb(w: Window*): Framebuffer* {
     END_C;
     return fb;
 }
+
 fun get_width(w: Window*): size_t {
     let width: size_t = cast(size_t, 0);
     BEGIN_C
@@ -27,55 +31,101 @@ fun get_height(w: Window*): size_t {
     return height;
 }
 
-fun sperkaster(s: char*): void {
+fun cast_ray(ray: Ray*, spheres: [Sphere 3], parallelepipeds: [Parallelepiped 0], max_bounces: int): VESA_Colour {
+    if (max_bounces <= 0) {
+        return make_VESA_Colour(0, 0, 0, 255);
+    };
+    let hit: Vec3? = none;
+    for (let i: size_t = cast(size_t, 0); i < spheres.length; i = i + 1) {
+        hit = ray_sphere_intersection_point(ray, &spheres[cast(int, i)]);
+        if (hit?) {
+            let normal := ray_sphere_hit_normal(ray, hit!, &spheres[cast(int, i)]);
+            // return spheres[cast(int, i)].colour;
+            return make_VESA_Colour(cast(int, (normal.x) * 0.5 * 255.0), cast(int, (normal.y) * 0.5 * 255.0), cast(int, (normal.z) * 0.5 * 255.0), 255);
+        }
+    };
+    for (let j: size_t = cast(size_t, 0); j < parallelepipeds.length; j = j + 1) {
+        hit = ray_parallelepiped_intersection(ray, &parallelepipeds[cast(int, j)]);
+        if (hit?) {
+            let normal := ray_parallelepiped_hit_normal(ray, hit!, &parallelepipeds[cast(int, j)]);
+            // return parallelepipeds[cast(int, j)].colour;
+            return make_VESA_Colour(cast(int, (normal.x) * 0.5 * 255.0), cast(int, (normal.y) * 0.5 * 255.0), cast(int, (normal.z) * 0.5 * 255.0), 255);
+        }
+    };
+    return make_VESA_Colour(0, 0, 0, 255);
+}
+
+fun juggle(sphere: Sphere*, ticks: int): void {
+    let pos_x: float = 20.0 * sin(cast(float, ticks) * 0.1);
+    let pos_y: float = fabs(20.0 * cos(cast(float, ticks) * 0.1));
+    (*sphere).position = make Vec3(x = pos_x, y = pos_y, z = (*sphere).position.z);
+}
+
+
+fun juggle_balls(s: char*): void {
     if (!_vell_is_active()) {
         printf("You need to run vell\n");
         return;
     };
 
-    let w: Window* = create_window_with_size("Sperkaster", hres, vres);
+    let w: Window* = create_window_with_size("Juggling...", hres, vres);
     set_window_dirty(w);
 
     fb_draw_rect(10, 10, get_width(w) - cast(size_t, 10), get_height(w) - cast(size_t, 10), cast(size_t, 1), make_VESA_Colour(255, 255, 255, 255), get_fb(w));
 
     let spheres: [Sphere 3] = [
-        make Sphere(radius = 4., position = make Vec3(x = -1., y = -1., z = -10.0), colour = make_VESA_Colour(255, 0, 0, 255)),
-        make Sphere(radius = 4., position = make Vec3(x = 0., y = 0., z = -10.0), colour = make_VESA_Colour(0, 255, 0, 255)),
-        make Sphere(radius = 4., position = make Vec3(x = 1., y = 1., z = -10.0), colour = make_VESA_Colour(0, 0, 255, 255))
+        make Sphere(radius = 8., position = make Vec3(x = -60., y = 0., z = -100.0), colour = make_VESA_Colour(255, 0, 0, 255)),
+        make Sphere(radius = 8., position = make Vec3(x = 0., y = 0., z = -100.0), colour = make_VESA_Colour(0, 255, 0, 255)),
+        make Sphere(radius = 8., position = make Vec3(x = 60., y = 0., z = -100.0), colour = make_VESA_Colour(0, 0, 255, 255))
+    ];
+
+    let parallelepipeds: [Parallelepiped 0] = [
+        // make Parallelepiped(min = make Vec3(x = -20., y = -20., z = -150.), max = make Vec3(x = 20., y = 20., z = -100.), colour = make_VESA_Colour(255, 255, 0, 255))
     ];
 
     let camera: PerspectiveCamera = make PerspectiveCamera(
         eye = make Vec3(x = 0.0, y = 0.0, z = 0.0),
         lookat = make Vec3(x = 0.0, y = 0.0, z = -1.0),
-        up = make Vec3(x = 0.0, y = 1.0, z = 0.0)
+        up = make Vec3(x = 0.0, y = -1.0, z = 0.0)
     );
 
-    let pixel_size: float = 0.01;
-
+    let light_source: LightSource = make LightSource(
+        position = make Vec3(x = 5.0, y = 5.0, z = 0.0),
+        intensity = 1.0,
+        colour = make_VESA_Colour(255, 255, 255, 255)
+    );
+    // Aspect ratio correction
+    let aspect_ratio: float = cast(float, hres) / cast(float, vres);
+    let fov: float = 60.0; // Field of view in degrees
+    let fov_rad: float = fov * 3.14159 / 180.0;
+    let scale: float = tan(fov_rad * 0.5);
+    
     while (true) {
         for (let y: size_t = cast(size_t, 0); y < vres; y = y + 1) {
             for (let x: size_t = cast(size_t, 0); x < hres; x = x + 1) {
-                let u: float = (cast(float, x) - cast(float, hres) / 2.0) * pixel_size;
-                let v: float = (cast(float, y) - cast(float, vres) / 2.0) * pixel_size;
+                // Normalize to [-1, 1] range first
+                let x_norm: float = (cast(float, x) / cast(float, hres)) * 2.0 - 1.0;
+                let y_norm: float = (cast(float, y) / cast(float, vres)) * 2.0 - 1.0;
+                
+                // Apply proper aspect ratio and field of view
+                let u: float = x_norm * aspect_ratio * scale;
+                let v: float = y_norm * scale;
 
                 let ray: Ray = camera_get_ray(&camera, u, v);
 
-                let hit_colour: VESA_Colour = make_VESA_Colour(0, 0, 0, 255);
-                for (let i: size_t = cast(size_t, 0); i < spheres.length; i = i + 1) {
-                    if (ray_intersects_sphere(&ray, &spheres[cast(int, i)])) {
-                        hit_colour = spheres[cast(int, i)].colour;
-                        break;
-                    }
-                };
-
-                let colour: VESA_Colour = hit_colour;
+                let colour: VESA_Colour = cast_ray(&ray, spheres, parallelepipeds, 5);
 
                 fb_set_pixel(x, y, colour, get_fb(w));
             }
         };
         set_window_dirty(w);
-        
-        sleep(1000);
+
+        juggle(&spheres[1], ticks);
+        juggle(&spheres[0], ticks + 20);
+        juggle(&spheres[2], ticks + 40);
+
+        sleep(1);
+        ticks = ticks + 1;
     }
 }
 

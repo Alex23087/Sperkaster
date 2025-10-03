@@ -36,6 +36,18 @@ struct Ray {
     let direction: Vec3 = make Vec3()
 }
 
+struct LightSource {
+    let position: Vec3 = make Vec3(),
+    let intensity: float = 1.0,
+    let colour: VESA_Colour = make_VESA_Colour(255, 255, 255, 255)
+}
+
+struct Parallelepiped {
+    let min: Vec3 = make Vec3(),
+    let max: Vec3 = make Vec3(),
+    let colour: VESA_Colour = make_VESA_Colour(255, 0, 0, 255)
+}
+
 fun vec3_sum(a: Vec3, b: Vec3): Vec3 {
     return make Vec3(x = a.x + b.x, y = a.y + b.y, z = a.z + b.z);
 }
@@ -48,16 +60,127 @@ fun ray_at(ray: Ray*, t: float): Vec3 {
     return vec3_sum((*ray).origin, vec3_scale((*ray).direction, t));
 }
 
-fun ray_intersects_sphere(ray: Ray*, sphere: Sphere*): bool {
+fun ray_sphere_intersection_point(ray: Ray*, sphere: Sphere*): Vec3? {
+    let vecnone: Vec3? = none;
     let oc: Vec3 = vec3_sum((*ray).origin, vec3_scale((*sphere).position, -1.0));
     let a: float = (*ray).direction.x * (*ray).direction.x + (*ray).direction.y * (*ray).direction.y + (*ray).direction.z * (*ray).direction.z;
     let b: float = 2.0 * (oc.x * (*ray).direction.x + oc.y * (*ray).direction.y + oc.z * (*ray).direction.z);
     let c: float = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - (*sphere).radius * (*sphere).radius;
     let discriminant: float = b * b - 4.0 * a * c;
-    return discriminant > 0.0;
+    if (discriminant < 0.0) {
+        return vecnone;
+    };
+    let sqrt_disc: float = fsqrt(discriminant);
+    let t1: float = (-b - sqrt_disc) / (2.0 * a);
+    let t2: float = (-b + sqrt_disc) / (2.0 * a);
+    let t: float = if t1 >= 0.0 then t1  else t2;
+    if (t < 0.0) {
+        return vecnone;
+    };
+    return some ray_at(ray, t);
+}
+
+fun ray_sphere_hit_normal(ray: Ray*, hit_point: Vec3, sphere: Sphere*): Vec3 {
+    let normal := vec3_scale(vec3_sum(hit_point, vec3_scale((*sphere).position, -1.0)), 1.0 / (*sphere).radius);
+    return if vec3_dot(normal, (*ray).direction) > 0.0 then make Vec3(x = 0., y = 0., z = 0.) else normal;
 }
 
 fun camera_get_ray(cam: PerspectiveCamera*, u: float, v: float): Ray {
-    let direction: Vec3 = vec3_sum(vec3_sum(vec3_scale((*cam).lookat, 1.0), vec3_scale((*cam).up, v)), vec3_scale(make Vec3(x = 1.0, y = 0.0, z = 0.0), u));
+    let forward: Vec3 = vec3_sum((*cam).lookat, vec3_scale((*cam).eye, -1.0));
+    let right: Vec3 = vec3_cross(forward, (*cam).up);
+    let up := (*cam).up;
+    let direction: Vec3 = vec3_normalized(vec3_sum(
+        vec3_sum(
+            vec3_scale(right, u),
+            vec3_scale(up, v)
+        ),
+        forward
+    ));
     return make Ray(origin = (*cam).eye, direction = direction);
+}
+
+fun vec3_dot(a: Vec3, b: Vec3): float {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+fun vec3_cross(a: Vec3, b: Vec3): Vec3 {
+    return make Vec3(
+        x = a.y * b.z - a.z * b.y,
+        y = a.z * b.x - a.x * b.z,
+        z = a.x * b.y - a.y * b.x
+    );
+}
+
+fun vec3_normalized(v: Vec3): Vec3 {
+    let len: float = fsqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (len == 0.0) {
+        return make Vec3(x = 0.0, y = 0.0, z = 0.0);
+    };
+    return make Vec3(x = v.x / len, y = v.y / len, z = v.z / len);
+}
+
+fun ray_parallelepiped_intersection(ray: Ray*, para: Parallelepiped*): Vec3? {
+    let vecnone: Vec3? = none;
+    let tmin: float = ((*para).min.x - (*ray).origin.x) / (*ray).direction.x;
+    let tmax: float = ((*para).max.x - (*ray).origin.x) / (*ray).direction.x;
+    if (tmin > tmax) {
+        let temp: float = tmin;
+        tmin = tmax;
+        tmax = temp;
+    };
+    let tymin: float = ((*para).min.y - (*ray).origin.y) / (*ray).direction.y;
+    let tymax: float = ((*para).max.y - (*ray).origin.y) / (*ray).direction.y;
+    if (tymin > tymax) {
+        let temp: float = tymin;
+        tymin = tymax;
+        tymax = temp;
+    };
+    if ((tmin > tymax) || (tymin > tmax)) {
+        return vecnone;
+    };
+    if (tymin > tmin) {
+        tmin = tymin;
+    };
+    if (tymax < tmax) {
+        tmax = tymax;
+    };
+    let tzmin: float = ((*para).min.z - (*ray).origin.z) / (*ray).direction.z;
+    let tzmax: float = ((*para).max.z - (*ray).origin.z) / (*ray).direction.z;
+    if (tzmin > tzmax) {
+        let temp: float = tzmin;
+        tzmin = tzmax;
+        tzmax = temp;
+    };
+    if ((tmin > tzmax) || (tzmin > tmax)) {
+        return vecnone;
+    };
+    if (tzmin > tmin) {
+        tmin = tzmin;
+    };
+    if (tzmax < tmax) {
+        tmax = tzmax;
+    };
+    if (tmin < 0.0 && tmax < 0.0) {
+        return vecnone;
+    };
+    let t: float = if tmin >= 0.0 then tmin  else tmax;
+    return some ray_at(ray, t);
+}
+
+fun ray_parallelepiped_hit_normal(ray: Ray*, hit_point: Vec3, para: Parallelepiped*): Vec3 {
+    let epsilon: float = 0.0001;
+    if (fabs(hit_point.x - (*para).min.x) < epsilon) {
+        return make Vec3(x = -1.0, y = 0.0, z = 0.0);
+    } else if (fabs(hit_point.x - (*para).max.x) < epsilon) {
+        return make Vec3(x = 1.0, y = 0.0, z = 0.0);
+    } else if (fabs(hit_point.y - (*para).min.y) < epsilon) {
+        return make Vec3(x = 0.0, y = -1.0, z = 0.0);
+    } else if (fabs(hit_point.y - (*para).max.y) < epsilon) {
+        return make Vec3(x = 0.0, y = 1.0, z = 0.0);
+    } else if (fabs(hit_point.z - (*para).min.z) < epsilon) {
+        return make Vec3(x = 0.0, y = 0.0, z = -1.0);
+    } else if (fabs(hit_point.z - (*para).max.z) < epsilon) {
+        return make Vec3(x = 0.0, y = 0.0, z = 1.0);
+    };
+    return make Vec3(x = 0.0, y = 0.0, z = 0.0); // Default normal if none found
 }

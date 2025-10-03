@@ -1,19 +1,15 @@
 import_local "includes.h"
-
-fun make_VESA_Colour(r: int, g: int, b: int, a: int): VESA_Colour {
-    let colour: VESA_Colour* = cast(VESA_Colour*, 0);
-    BEGIN_C
-    VESA_Colour vc = (VESA_Colour){ .r = r, .g = g, .b = b, .a = a };
-    colour = &vc;
-    END_C;
-    return *colour;
-}
+open "vesacolour.perk"
 
 struct Vec3 {
     let x: float = 0.0,
     let y: float = 0.0,
     let z: float = 0.0
 }
+
+// struct Material {
+
+// }
 
 struct Sphere {
     let radius: float = 1.0,
@@ -48,8 +44,12 @@ struct Parallelepiped {
     let colour: VESA_Colour = make_VESA_Colour(255, 0, 0, 255)
 }
 
-fun vec3_sum(a: Vec3, b: Vec3): Vec3 {
+fun vec3_add(a: Vec3, b: Vec3): Vec3 {
     return make Vec3(x = a.x + b.x, y = a.y + b.y, z = a.z + b.z);
+}
+
+fun vec3_sub(a: Vec3, b: Vec3): Vec3 {
+    return make Vec3(x = a.x - b.x, y = a.y - b.y, z = a.z - b.z);
 }
 
 fun vec3_scale(v: Vec3, s: float): Vec3 {
@@ -57,12 +57,12 @@ fun vec3_scale(v: Vec3, s: float): Vec3 {
 }
 
 fun ray_at(ray: Ray*, t: float): Vec3 {
-    return vec3_sum((*ray).origin, vec3_scale((*ray).direction, t));
+    return vec3_add((*ray).origin, vec3_scale((*ray).direction, t));
 }
 
 fun ray_sphere_intersection_point(ray: Ray*, sphere: Sphere*): Vec3? {
     let vecnone: Vec3? = none;
-    let oc: Vec3 = vec3_sum((*ray).origin, vec3_scale((*sphere).position, -1.0));
+    let oc: Vec3 = vec3_sub((*ray).origin, (*sphere).position);
     let a: float = (*ray).direction.x * (*ray).direction.x + (*ray).direction.y * (*ray).direction.y + (*ray).direction.z * (*ray).direction.z;
     let b: float = 2.0 * (oc.x * (*ray).direction.x + oc.y * (*ray).direction.y + oc.z * (*ray).direction.z);
     let c: float = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - (*sphere).radius * (*sphere).radius;
@@ -81,16 +81,18 @@ fun ray_sphere_intersection_point(ray: Ray*, sphere: Sphere*): Vec3? {
 }
 
 fun ray_sphere_hit_normal(ray: Ray*, hit_point: Vec3, sphere: Sphere*): Vec3 {
-    let normal := vec3_scale(vec3_sum(hit_point, vec3_scale((*sphere).position, -1.0)), 1.0 / (*sphere).radius);
-    return if vec3_dot(normal, (*ray).direction) > 0.0 then make Vec3(x = 0., y = 0., z = 0.) else normal;
+    let normal := vec3_normalized(vec3_sub(hit_point, (*sphere).position));
+    return if vec3_dot(normal, (*ray).direction) > 0.0
+        then vec3_scale(normal, -1.0)
+        else normal;
 }
 
 fun camera_get_ray(cam: PerspectiveCamera*, u: float, v: float): Ray {
-    let forward: Vec3 = vec3_sum((*cam).lookat, vec3_scale((*cam).eye, -1.0));
+    let forward: Vec3 = vec3_sub((*cam).lookat, (*cam).eye);
     let right: Vec3 = vec3_cross(forward, (*cam).up);
     let up := (*cam).up;
-    let direction: Vec3 = vec3_normalized(vec3_sum(
-        vec3_sum(
+    let direction: Vec3 = vec3_normalized(vec3_add(
+        vec3_add(
             vec3_scale(right, u),
             vec3_scale(up, v)
         ),
@@ -112,7 +114,7 @@ fun vec3_cross(a: Vec3, b: Vec3): Vec3 {
 }
 
 fun vec3_normalized(v: Vec3): Vec3 {
-    let len: float = fsqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    let len: float = vec3_length(v);
     if (len == 0.0) {
         return make Vec3(x = 0.0, y = 0.0, z = 0.0);
     };
@@ -183,4 +185,69 @@ fun ray_parallelepiped_hit_normal(ray: Ray*, hit_point: Vec3, para: Parallelepip
         return make Vec3(x = 0.0, y = 0.0, z = 1.0);
     };
     return make Vec3(x = 0.0, y = 0.0, z = 0.0); // Default normal if none found
+}
+
+fun vec3_rotate(vector: Vec3, axis: Vec3, angle: float): Vec3 {
+    let cos_theta: float = cos(angle);
+    let sin_theta: float = sin(angle);
+    return vec3_add(
+        vec3_scale(vector, cos_theta),
+        vec3_add(
+            vec3_scale(vec3_cross(axis, vector), sin_theta),
+            vec3_scale(axis, vec3_dot(axis, vector) * (1.0 - cos_theta))
+        )
+    );
+}
+
+// fun camera_look_at(cam: PerspectiveCamera*, target: Vec3): void {
+//     (*cam).lookat = vec3_normalized(target);
+//     let right := vec3_normalized(vec3_cross((*cam).lookat, (*cam).up));
+//     (*cam).up = vec3_cross(right, (*cam).lookat);
+// }
+
+fun vec3_length(v: Vec3): float {
+    return fsqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+fun vec3_length_squared(v: Vec3): float {
+    return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+
+fun vec3_random(): Vec3 {
+    return make Vec3(
+        x = frand() * 2. - 1.,
+        y = frand() * 2. - 1.,
+        z = frand() * 2. - 1.
+    );
+}
+
+fun vec3_random_in_unit_sphere(): Vec3 {
+    while (true) {
+        let p: Vec3 = vec3_random();
+        let p_len_sq: float = vec3_length_squared(p);
+        if (p_len_sq <= 1.0) {
+            return vec3_scale(p, 1.0 / fsqrt(p_len_sq));
+        };
+    };
+}
+
+fun vec3_random_in_hemisphere(normal: Vec3): Vec3 {
+    let in_unit_sphere: Vec3 = vec3_random_in_unit_sphere();
+    if (vec3_dot(in_unit_sphere, normal) > 0.0) {
+        return in_unit_sphere;
+    } else {
+        return vec3_scale(in_unit_sphere, -1.0);
+    };
+}
+
+fun vec3_reflect(v: Vec3, n: Vec3): Vec3 {
+    return vec3_sub(v, vec3_scale(n, 2.0 * vec3_dot(v, n)));
+}
+
+fun vec3_perturb(v: Vec3, magnitude: float): Vec3 {
+    return make Vec3(
+        x = v.x + (frand() * 2.0 - 1.0) * magnitude,
+        y = v.y + (frand() * 2.0 - 1.0) * magnitude,
+        z = v.z + (frand() * 2.0 - 1.0) * magnitude
+    );
 }

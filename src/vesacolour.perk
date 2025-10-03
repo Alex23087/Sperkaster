@@ -1,0 +1,59 @@
+import_local "includes.h"
+
+fun make_VESA_Colour(r: int, g: int, b: int, a: int): VESA_Colour {
+    let colour: VESA_Colour* = cast(VESA_Colour*, 0);
+    BEGIN_C
+    VESA_Colour vc = (VESA_Colour){ .r = r, .g = g, .b = b, .a = a };
+    colour = &vc;
+    END_C;
+    return *colour;
+}
+
+fun VESA_Colour_scale(c: VESA_Colour, s: float): VESA_Colour {
+    let r: int = 0;
+    let g: int = 0;
+    let b: int = 0;
+    let a: int = 0;
+    BEGIN_C
+    r = fclamp(c.r * s, 0, 255);
+    g = fclamp(c.g * s, 0, 255);
+    b = fclamp(c.b * s, 0, 255);
+    a = c.a;
+    END_C;
+    return make_VESA_Colour(r, g, b, a);
+}
+
+fun VESA_Colour_add(c1: VESA_Colour, c2: VESA_Colour): VESA_Colour {
+    let r: int = 0;
+    let g: int = 0;
+    let b: int = 0;
+    let a: int = 0;
+    BEGIN_C
+    r = fclamp(c1.r + c2.r, 0, 255);
+    g = fclamp(c1.g + c2.g, 0, 255);
+    b = fclamp(c1.b + c2.b, 0, 255);
+    a = fclamp(c1.a + c2.a, 0, 255);
+    END_C;
+    return make_VESA_Colour(r, g, b, a);
+}
+
+fun VESA_Colour_multiply(c1: VESA_Colour, c2: VESA_Colour): VESA_Colour {
+    let r: int = 0;
+    let g: int = 0;
+    let b: int = 0;
+    let a: int = 0;
+    BEGIN_C
+    r = fclamp((c1.r / 255.0) * (c2.r / 255.0) * 255.0, 0, 255);
+    g = fclamp((c1.g / 255.0) * (c2.g / 255.0) * 255.0, 0, 255);
+    b = fclamp((c1.b / 255.0) * (c2.b / 255.0) * 255.0, 0, 255);
+    a = fclamp((c1.a / 255.0) * (c2.a / 255.0) * 255.0, 0, 255);
+    END_C;
+    return make_VESA_Colour(r, g, b, a);
+}
+
+fun VESA_Colour_from_vec3(v: Vec3): VESA_Colour {
+    let r: int = cast(int, fclamp((v.x + 1.) * 0.5 * 255.0, 0., 255.));
+    let g: int = cast(int, fclamp((v.y + 1.) * 0.5 * 255.0, 0., 255.));
+    let b: int = cast(int, fclamp((v.z + 1.) * 0.5 * 255.0, 0., 255.));
+    return make_VESA_Colour(r, g, b, 255);
+}

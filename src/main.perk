@@ -4,7 +4,11 @@ open "geometry.perk"
 let hres: uint32_t = cast(uint32_t, 400)
 let vres: uint32_t = cast(uint32_t, 400)
 let pixel_size: float = 0.02
+fun default_colour(): VESA_Colour {
+    return make_VESA_Colour(0x90, 0xe3, 0xfc, 255);
+}
 let num_rays: int = 5
+let num_bounces: int = 2
 let ticks: int = 0
 
 fun get_fb(w: Window*): Framebuffer* {
@@ -33,15 +37,58 @@ fun get_height(w: Window*): size_t {
 
 fun cast_ray(ray: Ray*, spheres: [Sphere 3], parallelepipeds: [Parallelepiped 0], max_bounces: int): VESA_Colour {
     if (max_bounces <= 0) {
-        return make_VESA_Colour(0, 0, 0, 255);
+        return default_colour();
     };
     let hit: Vec3? = none;
     for (let i: size_t = cast(size_t, 0); i < spheres.length; i = i + 1) {
         hit = ray_sphere_intersection_point(ray, &spheres[cast(int, i)]);
         if (hit?) {
             let normal := ray_sphere_hit_normal(ray, hit!, &spheres[cast(int, i)]);
+            let reflected_dir: Vec3 = vec3_reflect((*ray).direction, normal);
+            let new_origin: Vec3 = vec3_add(hit!, vec3_scale(reflected_dir, 0.3));
+
             // return spheres[cast(int, i)].colour;
-            return make_VESA_Colour(cast(int, (normal.x) * 0.5 * 255.0), cast(int, (normal.y) * 0.5 * 255.0), cast(int, (normal.z) * 0.5 * 255.0), 255);
+            // return make_VESA_Colour(cast(int, (normal.x + 1.) * 0.5 * 255.0), cast(int, (normal.y + 1.) * 0.5 * 255.0), cast(int, (normal.z + 1.) * 0.5 * 255.0), 255);
+
+
+            // Colour by normal using angle to view direction
+            // let intensity: float = fclamp(fabs(vec3_dot(normal, (*ray).direction)), 0.0, 1.0);
+            // return make_VESA_Colour(cast(int, (normal.x + 1.) * 0.5 * 255.0 * intensity), cast(int, (normal.y + 1.) * 0.5 * 255.0 * intensity), cast(int, (normal.z + 1.) * 0.5 * 255.0 * intensity), 255);
+
+
+            // Cast multiple rays for diffuse reflection
+            let colour := make_VESA_Colour(0, 0, 0, 255);
+            for(let i := 0; i < num_rays; i = i + 1) {
+                let direction := vec3_normalized(vec3_perturb(reflected_dir, 0.2 * i));
+                let sample := VESA_Colour_scale(
+                    cast_ray(&(make Ray(origin = new_origin, direction = direction)), spheres, parallelepipeds, max_bounces - 1),
+                    0.8 / cast(float, num_rays)
+                );
+                colour = VESA_Colour_add(colour, sample);
+            };
+            return VESA_Colour_multiply(colour, spheres[cast(int, i)].colour);
+
+
+            // Cast a single ray for specular reflection
+            // return VESA_Colour_multiply(
+            //     VESA_Colour_scale(
+            //         cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1),
+            //         0.8
+            //     ),
+            //     spheres[cast(int, i)].colour
+            // );
+
+
+            // Colour by normal
+            // return VESA_Colour_from_vec3(normal);
+
+
+            // Colour by reflected direction
+            // return VESA_Colour_from_vec3(reflected_dir);
+
+
+            // Colour by position
+            // return VESA_Colour_from_vec3(hit!);
         }
     };
     for (let j: size_t = cast(size_t, 0); j < parallelepipeds.length; j = j + 1) {
@@ -52,31 +99,31 @@ fun cast_ray(ray: Ray*, spheres: [Sphere 3], parallelepipeds: [Parallelepiped 0]
             return make_VESA_Colour(cast(int, (normal.x) * 0.5 * 255.0), cast(int, (normal.y) * 0.5 * 255.0), cast(int, (normal.z) * 0.5 * 255.0), 255);
         }
     };
-    return make_VESA_Colour(0, 0, 0, 255);
+    return default_colour();
 }
 
-fun juggle(sphere: Sphere*, ticks: int): void {
+fun juggle_balls(sphere: Sphere*, ticks: int): void {
     let pos_x: float = 20.0 * sin(cast(float, ticks) * 0.1);
     let pos_y: float = fabs(20.0 * cos(cast(float, ticks) * 0.1));
     (*sphere).position = make Vec3(x = pos_x, y = pos_y, z = (*sphere).position.z);
 }
 
 
-fun juggle_balls(s: char*): void {
+fun sperkaster(s: char*): void {
     if (!_vell_is_active()) {
         printf("You need to run vell\n");
         return;
     };
 
-    let w: Window* = create_window_with_size("Juggling...", hres, vres);
+    let w: Window* = create_window_with_size("Sperkaster", hres, vres);
     set_window_dirty(w);
 
     fb_draw_rect(10, 10, get_width(w) - cast(size_t, 10), get_height(w) - cast(size_t, 10), cast(size_t, 1), make_VESA_Colour(255, 255, 255, 255), get_fb(w));
 
     let spheres: [Sphere 3] = [
-        make Sphere(radius = 8., position = make Vec3(x = -60., y = 0., z = -100.0), colour = make_VESA_Colour(255, 0, 0, 255)),
-        make Sphere(radius = 8., position = make Vec3(x = 0., y = 0., z = -100.0), colour = make_VESA_Colour(0, 255, 0, 255)),
-        make Sphere(radius = 8., position = make Vec3(x = 60., y = 0., z = -100.0), colour = make_VESA_Colour(0, 0, 255, 255))
+        make Sphere(radius = 8., position = make Vec3(x = -20., y = 0., z = -50.0), colour = make_VESA_Colour(255, 0, 0, 255)),
+        make Sphere(radius = 8., position = make Vec3(x = 0., y = 0., z = -50.0), colour = make_VESA_Colour(0, 255, 0, 255)),
+        make Sphere(radius = 8., position = make Vec3(x = 20., y = 0., z = -50.0), colour = make_VESA_Colour(0, 0, 255, 255))
     ];
 
     let parallelepipeds: [Parallelepiped 0] = [
@@ -108,21 +155,21 @@ fun juggle_balls(s: char*): void {
                 let y_norm: float = (cast(float, y) / cast(float, vres)) * 2.0 - 1.0;
                 
                 // Apply proper aspect ratio and field of view
-                let u: float = x_norm * aspect_ratio * scale;
+                let u: float = -x_norm * aspect_ratio * scale;
                 let v: float = y_norm * scale;
 
                 let ray: Ray = camera_get_ray(&camera, u, v);
 
-                let colour: VESA_Colour = cast_ray(&ray, spheres, parallelepipeds, 5);
+                let colour: VESA_Colour = cast_ray(&ray, spheres, parallelepipeds, num_bounces);
 
                 fb_set_pixel(x, y, colour, get_fb(w));
             }
         };
         set_window_dirty(w);
 
-        juggle(&spheres[1], ticks);
-        juggle(&spheres[0], ticks + 20);
-        juggle(&spheres[2], ticks + 40);
+        juggle_balls(&spheres[1], ticks);
+        juggle_balls(&spheres[0], ticks + 20);
+        juggle_balls(&spheres[2], ticks + 40);
 
         sleep(1);
         ticks = ticks + 1;

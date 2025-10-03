@@ -7,14 +7,16 @@ struct Vec3 {
     let z: float = 0.0
 }
 
-// struct Material {
-
-// }
+struct Material {
+    let type: int = 0, // 0 = solid, 1 = diffuse, 2 = reflective, 3 = refractive, -1 = normal, -2 = normal_attenuated, -3 = reflected direction, -4 = position
+    let colour: VESA_Colour = make_VESA_Colour(255, 0, 0, 255),
+    let refractive_index: float = 1.0
+}
 
 struct Sphere {
     let radius: float = 1.0,
     let position: Vec3 = make Vec3(),
-    let colour: VESA_Colour = make_VESA_Colour(255, 0, 0, 255)
+    let material: Material = make Material()
 }
 
 struct Mat4 {

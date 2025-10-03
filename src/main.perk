@@ -1,15 +1,22 @@
 import_local "includes.h"
 open "geometry.perk"
 
-let hres: uint32_t = cast(uint32_t, 400)
-let vres: uint32_t = cast(uint32_t, 400)
-let pixel_size: float = 0.02
-fun default_colour(): VESA_Colour {
-    return make_VESA_Colour(0x90, 0xe3, 0xfc, 255);
-}
-let num_rays: int = 5
-let num_bounces: int = 2
+let pixel_size: int = 4
+let hres: uint32_t = cast(uint32_t, 1270 / 4)
+let vres: uint32_t = cast(uint32_t, 770 / 4)
+fun default_colour(): VESA_Colour {return make_VESA_Colour(0x90, 0xe3, 0xfc, 255);}
+
+// Number of rays to cast for diffuse reflection
+let num_rays: int = 10
+// Number of times a ray can bounce
+let num_bounces: int = 3
+// Amount to scatter rays for diffuse reflection
+let scatter_amount: float = 0.5
+// Animation counter
 let ticks: int = 0
+let animate: bool = true
+// Sleep between frames
+let sleep_time: int = 1
 
 fun get_fb(w: Window*): Framebuffer* {
     let fb: Framebuffer* = cast(Framebuffer*, 0);
@@ -35,7 +42,7 @@ fun get_height(w: Window*): size_t {
     return height;
 }
 
-fun cast_ray(ray: Ray*, spheres: [Sphere 3], parallelepipeds: [Parallelepiped 0], max_bounces: int): VESA_Colour {
+fun cast_ray(ray: Ray*, spheres: [Sphere 4], parallelepipeds: [Parallelepiped 0], max_bounces: int): VESA_Colour {
     if (max_bounces <= 0) {
         return default_colour();
     };
@@ -47,48 +54,47 @@ fun cast_ray(ray: Ray*, spheres: [Sphere 3], parallelepipeds: [Parallelepiped 0]
             let reflected_dir: Vec3 = vec3_reflect((*ray).direction, normal);
             let new_origin: Vec3 = vec3_add(hit!, vec3_scale(reflected_dir, 0.3));
 
+            let mat: Material = spheres[cast(int, i)].material;
+
+            if (mat.type == 0) {
+                // Solid colour
+                return mat.colour;
+            } else if (mat.type == 1) {
+                // Cast multiple rays for diffuse reflection
+                let colour := make_VESA_Colour(0, 0, 0, 255);
+                for(let i := 0; i < num_rays; i = i + 1) {
+                    let direction := vec3_normalized(vec3_perturb(reflected_dir, scatter_amount * (i + 1)));
+                    let sample := VESA_Colour_scale(
+                        cast_ray(&(make Ray(origin = new_origin, direction = direction)), spheres, parallelepipeds, max_bounces - 1),
+                        0.8 / cast(float, num_rays)
+                    );
+                    colour = VESA_Colour_add(colour, sample);
+                };
+                return VESA_Colour_multiply(colour, mat.colour);
+            } else if (mat.type == 2) {
+                // Cast a single ray for specular reflection
+                return VESA_Colour_multiply(
+                    cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1),
+                    mat.colour
+                );
+                // Perfect mirror reflection
+                // return cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1);
+            } else if (mat.type == -1) {
+                // Colour by normal
+                return VESA_Colour_from_vec3(normal);
+            } else if (mat.type == -2) {
+                // Colour by normal using angle to view direction
+                let intensity: float = fclamp(fabs(vec3_dot(normal, (*ray).direction)), 0.0, 1.0);
+                return make_VESA_Colour(cast(int, (normal.x + 1.) * 0.5 * 255.0 * intensity), cast(int, (normal.y + 1.) * 0.5 * 255.0 * intensity), cast(int, (normal.z + 1.) * 0.5 * 255.0 * intensity), 255);                
+            } else if (mat.type == -3) {
+                // Colour by reflected direction
+                return VESA_Colour_from_vec3(reflected_dir);
+            } else if (mat.type == -4) {
+                // Colour by position
+                return VESA_Colour_from_vec3(hit!);
+            }
             // return spheres[cast(int, i)].colour;
             // return make_VESA_Colour(cast(int, (normal.x + 1.) * 0.5 * 255.0), cast(int, (normal.y + 1.) * 0.5 * 255.0), cast(int, (normal.z + 1.) * 0.5 * 255.0), 255);
-
-
-            // Colour by normal using angle to view direction
-            // let intensity: float = fclamp(fabs(vec3_dot(normal, (*ray).direction)), 0.0, 1.0);
-            // return make_VESA_Colour(cast(int, (normal.x + 1.) * 0.5 * 255.0 * intensity), cast(int, (normal.y + 1.) * 0.5 * 255.0 * intensity), cast(int, (normal.z + 1.) * 0.5 * 255.0 * intensity), 255);
-
-
-            // Cast multiple rays for diffuse reflection
-            let colour := make_VESA_Colour(0, 0, 0, 255);
-            for(let i := 0; i < num_rays; i = i + 1) {
-                let direction := vec3_normalized(vec3_perturb(reflected_dir, 0.2 * i));
-                let sample := VESA_Colour_scale(
-                    cast_ray(&(make Ray(origin = new_origin, direction = direction)), spheres, parallelepipeds, max_bounces - 1),
-                    0.8 / cast(float, num_rays)
-                );
-                colour = VESA_Colour_add(colour, sample);
-            };
-            return VESA_Colour_multiply(colour, spheres[cast(int, i)].colour);
-
-
-            // Cast a single ray for specular reflection
-            // return VESA_Colour_multiply(
-            //     VESA_Colour_scale(
-            //         cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1),
-            //         0.8
-            //     ),
-            //     spheres[cast(int, i)].colour
-            // );
-
-
-            // Colour by normal
-            // return VESA_Colour_from_vec3(normal);
-
-
-            // Colour by reflected direction
-            // return VESA_Colour_from_vec3(reflected_dir);
-
-
-            // Colour by position
-            // return VESA_Colour_from_vec3(hit!);
         }
     };
     for (let j: size_t = cast(size_t, 0); j < parallelepipeds.length; j = j + 1) {
@@ -115,15 +121,44 @@ fun sperkaster(s: char*): void {
         return;
     };
 
-    let w: Window* = create_window_with_size("Sperkaster", hres, vres);
+    let w: Window* = create_window_with_size("Sperkaster", hres * pixel_size, vres * pixel_size);
     set_window_dirty(w);
 
     fb_draw_rect(10, 10, get_width(w) - cast(size_t, 10), get_height(w) - cast(size_t, 10), cast(size_t, 1), make_VESA_Colour(255, 255, 255, 255), get_fb(w));
 
-    let spheres: [Sphere 3] = [
-        make Sphere(radius = 8., position = make Vec3(x = -20., y = 0., z = -50.0), colour = make_VESA_Colour(255, 0, 0, 255)),
-        make Sphere(radius = 8., position = make Vec3(x = 0., y = 0., z = -50.0), colour = make_VESA_Colour(0, 255, 0, 255)),
-        make Sphere(radius = 8., position = make Vec3(x = 20., y = 0., z = -50.0), colour = make_VESA_Colour(0, 0, 255, 255))
+    let spheres: [Sphere 4] = [
+        make Sphere(
+            radius = 8.,
+            position = make Vec3(x = -20., y = 0., z = -50.0),
+            material = make Material(
+                type = 1,
+                colour = make_VESA_Colour(255, 0, 0, 255)
+            )
+        ),
+        make Sphere(
+            radius = 8.,
+            position = make Vec3(x = 0., y = 0., z = -60.0),
+            material = make Material(
+                type = 2,
+                colour = make_VESA_Colour(200, 250, 200, 255)
+            )
+        ),
+        make Sphere(
+            radius = 8.,
+            position = make Vec3(x = 20., y = 0., z = -70.0),
+            material = make Material(
+                type = 1,
+                colour = make_VESA_Colour(0, 0, 255, 255)
+            )
+        ),
+        make Sphere(
+            radius = 1600.,
+            position = make Vec3(x = 0., y = -1600., z = -800.0),
+            material = make Material(
+                type = 0,
+                colour = make_VESA_Colour(0x54, 0x3b, 0x0e, 255)
+            )
+        )
     ];
 
     let parallelepipeds: [Parallelepiped 0] = [
@@ -131,8 +166,8 @@ fun sperkaster(s: char*): void {
     ];
 
     let camera: PerspectiveCamera = make PerspectiveCamera(
-        eye = make Vec3(x = 0.0, y = 0.0, z = 0.0),
-        lookat = make Vec3(x = 0.0, y = 0.0, z = -1.0),
+        eye = make Vec3(x = 0.0, y = 10.0, z = 0.0),
+        lookat = make Vec3(x = 0.0, y = 10.0, z = -1.0),
         up = make Vec3(x = 0.0, y = -1.0, z = 0.0)
     );
 
@@ -167,20 +202,26 @@ fun sperkaster(s: char*): void {
         };
         set_window_dirty(w);
 
-        juggle_balls(&spheres[1], ticks);
-        juggle_balls(&spheres[0], ticks + 20);
-        juggle_balls(&spheres[2], ticks + 40);
+        if (animate) {
+            juggle_balls(&spheres[1], ticks);
+            juggle_balls(&spheres[0], ticks + 20);
+            juggle_balls(&spheres[2], ticks + 40);
 
-        sleep(1);
-        ticks = ticks + 1;
+            ticks = ticks + 1;
+        };
+        sleep(sleep_time);
     }
 }
 
 fun fb_set_pixel(x: size_t, y: size_t, colour: VESA_Colour, fb: Framebuffer*): void {
     BEGIN_C
-    if (x < (*fb).width && y < (*fb).height) {
-        size_t index = y * (*fb).width + x;
-        (*fb).fb[index] = colour.val;
+    if ((x * pixel_size) < (*fb).width && (y * pixel_size) < (*fb).height) {
+        for (size_t dy = 0; dy < pixel_size; dy = dy + 1) {
+            for (size_t dx = 0; dx < pixel_size; dx = dx + 1) {
+            size_t index = (y * pixel_size + dy) * (*fb).width + (x * pixel_size + dx);
+            (*fb).fb[index] = colour.val;
+            }
+        }
     }
     END_C;
 }

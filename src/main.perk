@@ -1,0 +1,89 @@
+import_local "includes.h"
+open "geometry.perk"
+
+let hres: uint32_t = cast(uint32_t, 600)
+let vres: uint32_t = cast(uint32_t, 400)
+
+fun get_fb(w: Window*): Framebuffer* {
+    let fb: Framebuffer* = cast(Framebuffer*, 0);
+    BEGIN_C
+    fb = (*w).fb;
+    END_C;
+    return fb;
+}
+fun get_width(w: Window*): size_t {
+    let width: size_t = cast(size_t, 0);
+    BEGIN_C
+    width = (*w).width;
+    END_C;
+    return width;
+}
+
+fun get_height(w: Window*): size_t {
+    let height: size_t = cast(size_t, 0);
+    BEGIN_C
+    height = (*w).height;
+    END_C;
+    return height;
+}
+
+fun sperkaster(s: char*): void {
+    if (!_vell_is_active()) {
+        printf("You need to run vell\n");
+        return;
+    };
+
+    let w: Window* = create_window_with_size("Sperkaster", hres, vres);
+    set_window_dirty(w);
+
+    fb_draw_rect(10, 10, get_width(w) - cast(size_t, 10), get_height(w) - cast(size_t, 10), cast(size_t, 1), make_VESA_Colour(255, 255, 255, 255), get_fb(w));
+
+    let spheres: [Sphere 3] = [
+        make Sphere(radius = 4., position = make Vec3(x = -1., y = -1., z = -10.0), colour = make_VESA_Colour(255, 0, 0, 255)),
+        make Sphere(radius = 4., position = make Vec3(x = 0., y = 0., z = -10.0), colour = make_VESA_Colour(0, 255, 0, 255)),
+        make Sphere(radius = 4., position = make Vec3(x = 1., y = 1., z = -10.0), colour = make_VESA_Colour(0, 0, 255, 255))
+    ];
+
+    let camera: PerspectiveCamera = make PerspectiveCamera(
+        eye = make Vec3(x = 0.0, y = 0.0, z = 0.0),
+        lookat = make Vec3(x = 0.0, y = 0.0, z = -1.0),
+        up = make Vec3(x = 0.0, y = 1.0, z = 0.0)
+    );
+
+    let pixel_size: float = 0.01;
+
+    while (true) {
+        for (let y: size_t = cast(size_t, 0); y < vres; y = y + 1) {
+            for (let x: size_t = cast(size_t, 0); x < hres; x = x + 1) {
+                let u: float = (cast(float, x) - cast(float, hres) / 2.0) * pixel_size;
+                let v: float = (cast(float, y) - cast(float, vres) / 2.0) * pixel_size;
+
+                let ray: Ray = camera_get_ray(&camera, u, v);
+
+                let hit_colour: VESA_Colour = make_VESA_Colour(0, 0, 0, 255);
+                for (let i: size_t = cast(size_t, 0); i < spheres.length; i = i + 1) {
+                    if (ray_intersects_sphere(&ray, &spheres[cast(int, i)])) {
+                        hit_colour = spheres[cast(int, i)].colour;
+                        break;
+                    }
+                };
+
+                let colour: VESA_Colour = hit_colour;
+
+                fb_set_pixel(x, y, colour, get_fb(w));
+            }
+        };
+        set_window_dirty(w);
+        
+        sleep(1000);
+    }
+}
+
+fun fb_set_pixel(x: size_t, y: size_t, colour: VESA_Colour, fb: Framebuffer*): void {
+    BEGIN_C
+    if (x < (*fb).width && y < (*fb).height) {
+        size_t index = y * (*fb).width + x;
+        (*fb).fb[index] = colour.val;
+    }
+    END_C;
+}

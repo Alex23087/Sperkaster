@@ -1,0 +1,5 @@
+// #include "/home/perkelo/projects/other/MellOs/drivers/vesa/vesa_text.h"
+#include "/home/perkelo/projects/other/MellOs/utils/format.h"
+#include "/home/perkelo/projects/other/MellOs/shell/functions/vell.h"
+#include "/home/perkelo/projects/other/MellOs/GUI/gui.h"
+#include "/home/perkelo/projects/other/MellOs/cpu/timer/timer.h"

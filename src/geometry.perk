@@ -1,0 +1,63 @@
+import_local "includes.h"
+
+fun make_VESA_Colour(r: int, g: int, b: int, a: int): VESA_Colour {
+    let colour: VESA_Colour* = cast(VESA_Colour*, 0);
+    BEGIN_C
+    VESA_Colour vc = (VESA_Colour){ .r = r, .g = g, .b = b, .a = a };
+    colour = &vc;
+    END_C;
+    return *colour;
+}
+
+struct Vec3 {
+    let x: float = 0.0,
+    let y: float = 0.0,
+    let z: float = 0.0
+}
+
+struct Sphere {
+    let radius: float = 1.0,
+    let position: Vec3 = make Vec3(),
+    let colour: VESA_Colour = make_VESA_Colour(255, 0, 0, 255)
+}
+
+struct Mat4 {
+    let m: [float 16] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+}
+
+struct PerspectiveCamera {
+    let eye: Vec3 = make Vec3(),
+    let lookat: Vec3 = make Vec3(),
+    let up: Vec3 = make Vec3()
+}
+
+struct Ray {
+    let origin: Vec3 = make Vec3(),
+    let direction: Vec3 = make Vec3()
+}
+
+fun vec3_sum(a: Vec3, b: Vec3): Vec3 {
+    return make Vec3(x = a.x + b.x, y = a.y + b.y, z = a.z + b.z);
+}
+
+fun vec3_scale(v: Vec3, s: float): Vec3 {
+    return make Vec3(x = v.x * s, y = v.y * s, z = v.z * s);
+}
+
+fun ray_at(ray: Ray*, t: float): Vec3 {
+    return vec3_sum((*ray).origin, vec3_scale((*ray).direction, t));
+}
+
+fun ray_intersects_sphere(ray: Ray*, sphere: Sphere*): bool {
+    let oc: Vec3 = vec3_sum((*ray).origin, vec3_scale((*sphere).position, -1.0));
+    let a: float = (*ray).direction.x * (*ray).direction.x + (*ray).direction.y * (*ray).direction.y + (*ray).direction.z * (*ray).direction.z;
+    let b: float = 2.0 * (oc.x * (*ray).direction.x + oc.y * (*ray).direction.y + oc.z * (*ray).direction.z);
+    let c: float = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - (*sphere).radius * (*sphere).radius;
+    let discriminant: float = b * b - 4.0 * a * c;
+    return discriminant > 0.0;
+}
+
+fun camera_get_ray(cam: PerspectiveCamera*, u: float, v: float): Ray {
+    let direction: Vec3 = vec3_sum(vec3_sum(vec3_scale((*cam).lookat, 1.0), vec3_scale((*cam).up, v)), vec3_scale(make Vec3(x = 1.0, y = 0.0, z = 0.0), u));
+    return make Ray(origin = (*cam).eye, direction = direction);
+}

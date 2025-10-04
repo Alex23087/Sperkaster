@@ -57,3 +57,54 @@ fun VESA_Colour_from_vec3(v: Vec3): VESA_Colour {
     let b: int = cast(int, fclamp((v.z + 1.) * 0.5 * 255.0, 0., 255.));
     return make_VESA_Colour(r, g, b, 255);
 }
+
+struct HDColour {
+    let r: float = 0.0,
+    let g: float = 0.0,
+    let b: float = 0.0,
+    let a: float = 255.0
+}
+
+fun HDColour_to_VESA_Colour(hd: HDColour): VESA_Colour {
+    let r: int = cast(int, fclamp(hd.r, 0.0, 255.0));
+    let g: int = cast(int, fclamp(hd.g, 0.0, 255.0));
+    let b: int = cast(int, fclamp(hd.b, 0.0, 255.0));
+    let a: int = cast(int, fclamp(hd.a, 0.0, 255.0));
+    return make_VESA_Colour(r, g, b, a);
+}
+
+fun HDColour_scale(c: HDColour, s: float): HDColour {
+    return make HDColour (
+        r = fclamp(c.r * s, 0., 255.),
+        g = fclamp(c.g * s, 0., 255.),
+        b = fclamp(c.b * s, 0., 255.),
+        a = c.a
+    );
+}
+
+fun HDColour_multiply(c1: HDColour, c2: HDColour): HDColour {
+    return make HDColour (
+        r = fclamp((c1.r / 255.0) * (c2.r), 0., 255.),
+        g = fclamp((c1.g / 255.0) * (c2.g), 0., 255.),
+        b = fclamp((c1.b / 255.0) * (c2.b), 0., 255.),
+        a = fclamp((c1.a / 255.0) * (c2.a), 0., 255.)
+    );
+}
+
+fun HDColour_from_vec3(v: Vec3): HDColour {
+    return make HDColour (
+        r = fclamp((v.x + 1.) * 0.5 * 255.0, 0., 255.),
+        g = fclamp((v.y + 1.) * 0.5 * 255.0, 0., 255.),
+        b = fclamp((v.z + 1.) * 0.5 * 255.0, 0., 255.),
+        a = 255.0
+    );
+}
+
+fun HDColour_add(c1: HDColour, c2: HDColour): HDColour {
+    return make HDColour (
+        r = fclamp(c1.r + c2.r, 0., 255.),
+        g = fclamp(c1.g + c2.g, 0., 255.),
+        b = fclamp(c1.b + c2.b, 0., 255.),
+        a = fclamp(c1.a + c2.a, 0., 255.)
+    );
+}

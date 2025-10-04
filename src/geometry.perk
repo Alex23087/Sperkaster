@@ -9,7 +9,7 @@ struct Vec3 {
 
 struct Material {
     let type: int = 0, // 0 = solid, 1 = diffuse, 2 = reflective, 3 = refractive, -1 = normal, -2 = normal_attenuated, -3 = reflected direction, -4 = position
-    let colour: VESA_Colour = make_VESA_Colour(255, 0, 0, 255),
+    let colour: HDColour = make HDColour (r = 255., g = 0., b = 0., a = 255.),
     let refractive_index: float = 1.0,
     let diffusion: float = 0.5 // Only used for diffuse materials
 }
@@ -38,7 +38,7 @@ struct Ray {
 struct LightSource {
     let position: Vec3 = make Vec3(),
     let intensity: float = 1.0,
-    let colour: VESA_Colour = make_VESA_Colour(255, 255, 255, 255)
+    let colour: HDColour = make HDColour()
 }
 
 struct Parallelepiped {

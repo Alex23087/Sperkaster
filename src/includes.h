@@ -4,3 +4,4 @@
 #include "/home/perkelo/projects/other/MellOs/shell/functions/vell.h"
 #include "/home/perkelo/projects/other/MellOs/GUI/gui.h"
 #include "/home/perkelo/projects/other/MellOs/cpu/timer/timer.h"
+#include "/home/perkelo/projects/other/MellOs/drivers/vesa/vesa.h"

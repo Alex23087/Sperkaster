@@ -265,6 +265,14 @@ fun sperkaster(s: char*): void {
                 };
                 
                 fb_set_pixel(x, y, colour, fb);
+
+                let c:char = get_from_kb_buffer();
+                if (c == 'q') {
+                    if (in_vell) {
+                        destroy_window(w);
+                    };
+                    return
+                }
             };
         };
         if(in_vell) {

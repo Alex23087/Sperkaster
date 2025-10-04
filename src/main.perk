@@ -3,16 +3,16 @@ open "geometry.perk"
 
 extern vga_fb: Framebuffer*
 
-let pixel_size: int = 4
-let hres: uint32_t = cast(uint32_t, 1270 / 4)
-let vres: uint32_t = cast(uint32_t, 770 / 4)
+let pixel_size: int = 1
+let hres: uint32_t = cast(uint32_t, 1270 / 1)
+let vres: uint32_t = cast(uint32_t, 770 / 1)
 let sky_colour: HDColour = make HDColour (r = 0x90 << 22, g = 0xe3 << 22, b = 0xfc << 22, a = 255 << 22)
 let no_colour: HDColour = make HDColour (r = 0, g = 0, b = 0, a = 1073741823)
 
 // Number of rays to cast per pixel
-let num_rays: int = 500
+let num_rays: int = 50
 // Number of times a ray can bounce
-let num_bounces: int = 10
+let num_bounces: int = 8
 // Amount to scatter rays
 let scatter_amount: float = 0.001
 // Bias to avoid acne
@@ -68,12 +68,20 @@ fun compute_colour (mat: Material, normal: Vec3, ray: Ray*, hit: (Vec3 * bool), 
                 mat.colour
             );
         }
-        // Perfect mirror reflection
-        // return cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1);
     } else if (mat.type == 3) { // Refractive
         // Compute refraction using Snell's law
         let etai_over_etat: float = if hit[1] then mat.refractive_index else 1.0 / mat.refractive_index;
         let cos_theta: float = fmin(vec3_dot(vec3_scale((*ray).direction, -1.0), normal), 1.0);
+        let sin_theta: float = fsqrt(1.0 - cos_theta * cos_theta);
+
+        if (etai_over_etat * sin_theta > 1.0) {
+            // Total internal reflection
+            return HDColour_multiply(
+                cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1),
+                mat.colour
+            );
+        };
+
         let r_out_perp: Vec3 = vec3_scale(vec3_add((*ray).direction, vec3_scale(normal, cos_theta)), etai_over_etat);
         let r_out_parallel: Vec3 = vec3_scale(normal, -fsqrt(fabs(1.0 - vec3_length_squared(r_out_perp))));
         let refracted: Vec3 = vec3_add(r_out_perp, r_out_parallel);
@@ -144,20 +152,21 @@ fun sperkaster(s: char*): void {
     let spheres: [Sphere 3] = [
         make Sphere(
             radius = 8.,
-            position = make Vec3(x = -40., y = 0., z = -40.0),
-            material = make Material(
-                type = 3,
-                colour = make HDColour(r = colour_max, g = 0, b = 0, a = colour_max),
-                diffusion = 1.,
-                refractive_index = 1.5
-            )
-        ),
-        make Sphere(
-            radius = 8.,
             position = make Vec3(x = 0., y = 0., z = -60.0),
             material = make Material(
                 type = 2,
                 colour = make HDColour(r = 200 << shift_amt, g = 250 << shift_amt, b = 200 << shift_amt, a = colour_max)
+            )
+        ),
+        make Sphere(
+            radius = 8.,
+            position = make Vec3(x = -40., y = 0., z = -70.0),
+            material = make Material(
+                type = 3,
+                colour = make HDColour(r = colour_max, g = colour_max, b = colour_max, a = colour_max),
+                // colour = make HDColour(r = colour_max, g = 0, b = 0, a = colour_max),
+                diffusion = 1.,
+                refractive_index = 1. / 1.33
             )
         ),
         make Sphere(
@@ -210,8 +219,8 @@ fun sperkaster(s: char*): void {
     ];
 
     let camera: PerspectiveCamera = make PerspectiveCamera(
-        eye = make Vec3(x = 0.0, y = 10.0, z = 0.0),
-        lookat = make Vec3(x = 0.0, y = 10.0, z = -1.0),
+        eye = make Vec3(x = 0.0, y = 10.0, z = -30.0),
+        lookat = make Vec3(x = 0.0, y = 10.0, z = -31.0),
         up = make Vec3(x = 0.0, y = -1.0, z = 0.0)
     );
 
@@ -228,6 +237,11 @@ fun sperkaster(s: char*): void {
     
     let inverse_num_rays := 1.0 / cast(float, num_rays);
 
+    juggle_balls(&spheres[1], ticks);
+    juggle_balls(&spheres[0], ticks + 20);
+    juggle_balls(&spheres[2], ticks + 40);
+
+    ticks = ticks + 1;
     while (true) {
         for (let y: size_t = cast(size_t, 0); y < vres; y = y + 1) {
             for (let x: size_t = cast(size_t, 0); x < hres; x = x + 1) {
@@ -274,6 +288,11 @@ fun fb_set_pixel(x: size_t, y: size_t, colour: HDColour, fb: Framebuffer*): void
     let colourVESA := HDColour_to_VESA_Colour(colour);
     BEGIN_C
     if ((x * pixel_size) < (*fb).width && (y * pixel_size) < (*fb).height) {
+        if (pixel_size == 1) {
+            size_t index = y * (*fb).width + x;
+            (*fb).fb[index] = colourVESA.val;
+            return;
+        }
         for (size_t dy = 0; dy < pixel_size; dy = dy + 1) {
             for (size_t dx = 0; dx < pixel_size; dx = dx + 1) {
             size_t index = (y * pixel_size + dy) * (*fb).width + (x * pixel_size + dx);

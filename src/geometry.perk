@@ -9,7 +9,7 @@ struct Vec3 {
 
 struct Material {
     let type: int = 0, // 0 = solid, 1 = diffuse, 2 = reflective, 3 = refractive, -1 = normal, -2 = normal_attenuated, -3 = reflected direction, -4 = position
-    let colour: HDColour = make HDColour (r = 255., g = 0., b = 0., a = 255.),
+    let colour: HDColour = make HDColour (r = colour_max, g = 0, b = 0, a = colour_max),
     let refractive_index: float = 1.0,
     let diffusion: float = 0.5 // Only used for diffuse materials
 }
@@ -83,11 +83,11 @@ fun ray_sphere_intersection_point(ray: Ray*, sphere: Sphere*): Vec3? {
     return some ray_at(ray, t);
 }
 
-fun ray_sphere_hit_normal(ray: Ray*, hit_point: Vec3, sphere: Sphere*): Vec3 {
+fun ray_sphere_hit_normal(ray: Ray*, hit_point: Vec3, sphere: Sphere*): (Vec3 * bool) {
     let normal := vec3_normalized(vec3_sub(hit_point, (*sphere).position));
     return if vec3_dot(normal, (*ray).direction) > 0.0
-        then vec3_scale(normal, -1.0)
-        else normal;
+        then (vec3_scale(normal, -1.0), true)
+        else (normal, false);
 }
 
 fun camera_get_ray(cam: PerspectiveCamera*, u: float, v: float): Ray {
@@ -172,22 +172,22 @@ fun ray_parallelepiped_intersection(ray: Ray*, para: Parallelepiped*): Vec3? {
     return some ray_at(ray, t);
 }
 
-fun ray_parallelepiped_hit_normal(ray: Ray*, hit_point: Vec3, para: Parallelepiped*): Vec3 {
+fun ray_parallelepiped_hit_normal(ray: Ray*, hit_point: Vec3, para: Parallelepiped*): (Vec3 * bool) {
     let epsilon: float = 0.0001;
     if (fabs(hit_point.x - (*para).min.x) < epsilon) {
-        return make Vec3(x = -1.0, y = 0.0, z = 0.0);
+        return (make Vec3(x = -1.0, y = 0.0, z = 0.0), true);
     } else if (fabs(hit_point.x - (*para).max.x) < epsilon) {
-        return make Vec3(x = 1.0, y = 0.0, z = 0.0);
+        return (make Vec3(x = 1.0, y = 0.0, z = 0.0), true);
     } else if (fabs(hit_point.y - (*para).min.y) < epsilon) {
-        return make Vec3(x = 0.0, y = -1.0, z = 0.0);
+        return (make Vec3(x = 0.0, y = -1.0, z = 0.0), true);
     } else if (fabs(hit_point.y - (*para).max.y) < epsilon) {
-        return make Vec3(x = 0.0, y = 1.0, z = 0.0);
+        return (make Vec3(x = 0.0, y = 1.0, z = 0.0), true);
     } else if (fabs(hit_point.z - (*para).min.z) < epsilon) {
-        return make Vec3(x = 0.0, y = 0.0, z = -1.0);
+        return (make Vec3(x = 0.0, y = 0.0, z = -1.0), true);
     } else if (fabs(hit_point.z - (*para).max.z) < epsilon) {
-        return make Vec3(x = 0.0, y = 0.0, z = 1.0);
+        return (make Vec3(x = 0.0, y = 0.0, z = 1.0), true);
     };
-    return make Vec3(x = 0.0, y = 0.0, z = 0.0); // Default normal if none found
+    return (make Vec3(x = 0.0, y = 0.0, z = 0.0), false); // Default normal if none found
 }
 
 fun vec3_rotate(vector: Vec3, axis: Vec3, angle: float): Vec3 {

@@ -4,22 +4,23 @@ open "geometry.perk"
 extern vga_fb: Framebuffer*
 
 let pixel_size: int = 1
-let hres: uint32_t = cast(uint32_t, 1270 / 1)
-let vres: uint32_t = cast(uint32_t, 770 / 1)
-let sky_colour: HDColour = make HDColour (r = 0x90 << 22, g = 0xe3 << 22, b = 0xfc << 22, a = 255 << 22)
-let no_colour: HDColour = make HDColour (r = 0, g = 0, b = 0, a = 1073741823)
+let hres: uint32_t = cast(uint32_t, 1920 / 1)
+let vres: uint32_t = cast(uint32_t, 1080 / 1)
+let sky_colour: HDColour = make HDColour (r = 0x90 << 8, g = 0xe3 << 8, b = 0xfc << 8, a = 255 << 8)
+let no_colour: HDColour = make HDColour (r = 0, g = 0, b = 0, a = 65535)
 
 // Number of rays to cast per pixel
-let num_rays: int = 50
+let num_rays: int = 2000
 // Number of times a ray can bounce
-let num_bounces: int = 8
+let num_bounces: int = 80
 // Amount to scatter rays
 let scatter_amount: float = 0.001
 // Bias to avoid acne
-let acne_bias: float = 2.
+let acne_bias: float = .001
 // Animation counter
-let ticks: int = 0
-let animate: bool = true
+let ticks: int = 78
+let animate: bool = false
+let done: bool = false
 // Sleep between frames
 let sleep_time: int = 1
 
@@ -47,12 +48,15 @@ fun get_height(w: Window*): size_t {
     return height;
 }
 
-fun compute_colour (mat: Material, normal: Vec3, ray: Ray*, hit: (Vec3 * bool), spheres: [Sphere 3], parallelepipeds: [Parallelepiped 1], max_bounces: int): HDColour {
+fun compute_colour (mat: Material, normal: Vec3, ray: Ray*, hit: (Vec3 * bool), spheres: [Sphere 4], parallelepipeds: [Parallelepiped 1], max_bounces: int): HDColour {
     let reflected_dir: Vec3 = vec3_reflect((*ray).direction, normal);
     let new_origin: Vec3 = vec3_add(hit[0], vec3_scale(reflected_dir, acne_bias));
     if (mat.type == 0) {                    // Solid colour
         return mat.colour;
     } else if (mat.type == 1) {             // Diffuse
+        // if (max_bounces == 1) {
+        //     return mat.colour;
+        // };
         let direction := vec3_add(vec3_random_in_unit_sphere(), normal);
         let sample := HDColour_scale(
             cast_ray(&(make Ray(origin = new_origin, direction = direction)), spheres, parallelepipeds, max_bounces - 1),
@@ -60,14 +64,14 @@ fun compute_colour (mat: Material, normal: Vec3, ray: Ray*, hit: (Vec3 * bool), 
         );
         return HDColour_multiply(sample, mat.colour);
     } else if (mat.type == 2) {             // Specular reflection
-        if (max_bounces == 1) {
-            return mat.colour;
-        } else {
+        // if (max_bounces == 1) {
+        //     return mat.colour;
+        // } else {
             return HDColour_multiply(
                 cast_ray(&(make Ray(origin = new_origin, direction = reflected_dir)), spheres, parallelepipeds, max_bounces - 1),
                 mat.colour
             );
-        }
+        // }
     } else if (mat.type == 3) { // Refractive
         // Compute refraction using Snell's law
         let etai_over_etat: float = if hit[1] then mat.refractive_index else 1.0 / mat.refractive_index;
@@ -102,7 +106,7 @@ fun compute_colour (mat: Material, normal: Vec3, ray: Ray*, hit: (Vec3 * bool), 
     return sky_colour;
 }
 
-fun cast_ray(ray: Ray*, spheres: [Sphere 3], parallelepipeds: [Parallelepiped 1], max_bounces: int): HDColour {
+fun cast_ray(ray: Ray*, spheres: [Sphere 4], parallelepipeds: [Parallelepiped 1], max_bounces: int): HDColour {
     if (max_bounces <= 0) {
         return no_colour;
     };
@@ -149,7 +153,15 @@ fun sperkaster(s: char*): void {
         fb = get_fb(w);
     };
 
-    let spheres: [Sphere 3] = [
+    let spheres: [Sphere 4] = [
+        make Sphere(
+            radius = 8.,
+            position = make Vec3(x = 0., y = 0., z = -50.0),
+            material = make Material(
+                type = 1,
+                colour = make HDColour(r = colour_max)
+            )
+        ),
         make Sphere(
             radius = 8.,
             position = make Vec3(x = 0., y = 0., z = -60.0),
@@ -163,10 +175,11 @@ fun sperkaster(s: char*): void {
             position = make Vec3(x = -40., y = 0., z = -70.0),
             material = make Material(
                 type = 3,
-                colour = make HDColour(r = colour_max, g = colour_max, b = colour_max, a = colour_max),
+                colour = make HDColour(r = 250 << shift_amt, g = 250 << shift_amt, b = 250 << shift_amt, a = colour_max),
                 // colour = make HDColour(r = colour_max, g = 0, b = 0, a = colour_max),
                 diffusion = 1.,
                 refractive_index = 1. / 1.33
+                // refractive_index = 1.5
             )
         ),
         make Sphere(
@@ -191,12 +204,13 @@ fun sperkaster(s: char*): void {
     let parallelepipeds: [Parallelepiped 1] = [
         // Ground
         make Parallelepiped(
-            min = make Vec3(x = -4000., y = -8., z = -4000.),
-            max = make Vec3(x = 4000., y = -10., z = 4000.),
+            min = make Vec3(x = -4000., y = -10., z = -4000.),
+            max = make Vec3(x = 4000., y = -8., z = 4000.),
             material = make Material(
                 type = 1,
-                // colour = make HDColour(r = 0x40 << shift_amt, g = 0x60 << shift_amt, b = 0x40 << shift_amt, a = 255 << shift_amt),
-                colour = make HDColour(r = 0xff << shift_amt, g = 0xff << shift_amt, b = 0x8f << shift_amt, a = 255 << shift_amt),
+                colour = make HDColour(r = 0x50 << shift_amt, g = 0x60 << shift_amt, b = 0x50 << shift_amt, a = 255 << shift_amt),
+                // colour = make HDColour(r = colour_max, g = colour_max, b = colour_max, a = colour_max),
+                // colour = make HDColour(r = 0xff << shift_amt, g = 0xff << shift_amt, b = 0x8f << shift_amt, a = 255 << shift_amt),
                 diffusion = 1.
             )
         )
@@ -219,8 +233,8 @@ fun sperkaster(s: char*): void {
     ];
 
     let camera: PerspectiveCamera = make PerspectiveCamera(
-        eye = make Vec3(x = 0.0, y = 10.0, z = -30.0),
-        lookat = make Vec3(x = 0.0, y = 10.0, z = -31.0),
+        eye = make Vec3(x = 5., y = 10.0, z = -10.0),
+        lookat = make Vec3(x = 5., y = 10.0, z = -11.0),
         up = make Vec3(x = 0.0, y = -1.0, z = 0.0)
     );
 
@@ -237,12 +251,14 @@ fun sperkaster(s: char*): void {
     
     let inverse_num_rays := 1.0 / cast(float, num_rays);
 
-    juggle_balls(&spheres[1], ticks);
-    juggle_balls(&spheres[0], ticks + 20);
-    juggle_balls(&spheres[2], ticks + 40);
+    juggle_balls(&spheres[0], ticks);
+    juggle_balls(&spheres[1], ticks + 10);
+    juggle_balls(&spheres[2], ticks + 20);
+    juggle_balls(&spheres[3], ticks + 30);
 
     ticks = ticks + 1;
     while (true) {
+        if (!done){
         for (let y: size_t = cast(size_t, 0); y < vres; y = y + 1) {
             for (let x: size_t = cast(size_t, 0); x < hres; x = x + 1) {
                 // Normalize to [-1, 1] range first
@@ -257,6 +273,8 @@ fun sperkaster(s: char*): void {
                 let colour: HDColour = make HDColour();
                 for (let r: int = 0; r < num_rays; r = r + 1) {
                     let ray_i: Ray = make Ray(origin = ray.origin, direction = vec3_normalized(vec3_perturb(ray.direction, scatter_amount)));
+                    // let ray_i: Ray = make Ray(origin = ray.origin, direction = vec3_normalized(ray.direction));
+                    // let ray_i := ray;
                     let sample := HDColour_scale(
                         cast_ray(&ray_i, spheres, parallelepipeds, num_bounces),
                         inverse_num_rays
@@ -271,6 +289,7 @@ fun sperkaster(s: char*): void {
                     if (in_vell) {
                         destroy_window(w);
                     };
+                    printf("%d ticks rendered\n", ticks);
                     return
                 }
             };
@@ -278,15 +297,19 @@ fun sperkaster(s: char*): void {
         if(in_vell) {
             set_window_dirty(w);
         };
+    };
 
         if (animate) {
-            juggle_balls(&spheres[1], ticks);
-            juggle_balls(&spheres[0], ticks + 20);
-            juggle_balls(&spheres[2], ticks + 40);
+            juggle_balls(&spheres[0], ticks);
+            juggle_balls(&spheres[1], ticks + 10);
+            juggle_balls(&spheres[2], ticks + 20);
+            juggle_balls(&spheres[3], ticks + 30);
 
             ticks = ticks + 1;
 
             // camera.lookat = vec3_rotate(camera.lookat, make Vec3(x = 0., y = 1., z = 0.), 0.05);
+        } else {
+            done = true;
         };
         sleep(sleep_time);
     }

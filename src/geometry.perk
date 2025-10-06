@@ -225,13 +225,14 @@ fun vec3_random(): Vec3 {
 }
 
 fun vec3_random_in_unit_sphere(): Vec3 {
-    while (true) {
-        let p: Vec3 = vec3_random();
-        let p_len_sq: float = vec3_length_squared(p);
-        if (p_len_sq <= 1.0) {
-            return vec3_scale(p, 1.0 / fsqrt(p_len_sq));
-        };
-    };
+    // while (true) {
+    //     let p: Vec3 = vec3_random();
+    //     let p_len_sq: float = vec3_length_squared(p);
+    //     if (p_len_sq <= 1.0) {
+    //         return vec3_scale(p, 1.0 / fsqrt(p_len_sq));
+    //     };
+    // };
+    return vec3_normalized(vec3_random());
 }
 
 fun vec3_random_in_hemisphere(normal: Vec3): Vec3 {

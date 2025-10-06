@@ -1,8 +1,9 @@
 import_local "includes.h"
 
-let colour_max: int = 1073741823
-let int_size: int = 30
-let shift_amt: int = 22
+let colour_max: int = 65535
+let colour_size: int = 16
+let shift_amt: int = 8
+let divider  := 256
 
 fun make_VESA_Colour(r: int, g: int, b: int, a: int): VESA_Colour {
     let colour: VESA_Colour* = cast(VESA_Colour*, 0);
@@ -70,10 +71,10 @@ struct HDColour {
 }
 
 fun HDColour_to_VESA_Colour(hd: HDColour): VESA_Colour {
-    let r: int = clamp(hd.r >> shift_amt, 0, 255);
-    let g: int = clamp(hd.g >> shift_amt, 0, 255);
-    let b: int = clamp(hd.b >> shift_amt, 0, 255);
-    let a: int = clamp(hd.a >> shift_amt, 0, 255);
+    let r: int = clamp(hd.r / divider, 0, 255);
+    let g: int = clamp(hd.g / divider, 0, 255);
+    let b: int = clamp(hd.b / divider, 0, 255);
+    let a: int = clamp(hd.a / divider, 0, 255);
     return make_VESA_Colour(r, g, b, a);
 }
 
@@ -88,10 +89,10 @@ fun HDColour_scale(c: HDColour, s: float): HDColour {
 
 fun HDColour_multiply(c1: HDColour, c2: HDColour): HDColour {
     return make HDColour (
-        r = clamp(cast(int, ((cast(float, c1.r) / colour_max) * c2.r)), 0, colour_max),
-        g = clamp(cast(int, ((cast(float, c1.g) / colour_max) * c2.g)), 0, colour_max),
-        b = clamp(cast(int, ((cast(float, c1.b) / colour_max) * c2.b)), 0, colour_max),
-        a = clamp(cast(int, ((cast(float, c1.a) / colour_max) * c2.a)), 0, colour_max)
+        r = clamp(((c1.r >> 8) * (c2.r >> 8)), 0, colour_max),
+        g = clamp(((c1.g >> 8) * (c2.g >> 8)), 0, colour_max),
+        b = clamp(((c1.b >> 8) * (c2.b >> 8)), 0, colour_max),
+        a = clamp(((c1.a >> 8) * (c2.a >> 8)), 0, colour_max)
     );
 }
 

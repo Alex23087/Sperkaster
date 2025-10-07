@@ -3,23 +3,24 @@ open "geometry.perk"
 
 extern vga_fb: Framebuffer*
 
-let pixel_size: int = 1
-let hres: uint32_t = cast(uint32_t, 1920 / 1)
-let vres: uint32_t = cast(uint32_t, 1080 / 1)
+let pixel_size: int = 2
+let hres: uint32_t = cast(uint32_t, 600 / 2)
+let vres: uint32_t = cast(uint32_t, 400 / 2)
 let sky_colour: HDColour = make HDColour (r = 0x90 << 8, g = 0xe3 << 8, b = 0xfc << 8, a = 255 << 8)
 let no_colour: HDColour = make HDColour (r = 0, g = 0, b = 0, a = 65535)
 
 // Number of rays to cast per pixel
-let num_rays: int = 2000
+let num_rays: int = 5
 // Number of times a ray can bounce
-let num_bounces: int = 80
+let num_bounces: int = 10
 // Amount to scatter rays
 let scatter_amount: float = 0.001
 // Bias to avoid acne
 let acne_bias: float = .001
 // Animation counter
-let ticks: int = 78
-let animate: bool = false
+let initial_ticks: int = 78
+let ticks: int = 0
+let animate: bool = true
 let done: bool = false
 // Sleep between frames
 let sleep_time: int = 1
@@ -133,8 +134,8 @@ fun cast_ray(ray: Ray*, spheres: [Sphere 4], parallelepipeds: [Parallelepiped 1]
 }
 
 fun juggle_balls(sphere: Sphere*, ticks: int): void {
-    let pos_x: float = 20.0 * sin(cast(float, ticks) * 0.1);
-    let pos_y: float = fabs(20.0 * cos(cast(float, ticks) * 0.1));
+    let pos_x: float = 20.0 * sin(cast(float, initial_ticks + ticks) * 0.1);
+    let pos_y: float = fabs(20.0 * cos(cast(float, initial_ticks + ticks) * 0.1));
     (*sphere).position = make Vec3(x = pos_x, y = pos_y, z = (*sphere).position.z);
 }
 
@@ -290,6 +291,7 @@ fun sperkaster(s: char*): void {
                         destroy_window(w);
                     };
                     printf("%d ticks rendered\n", ticks);
+                    ticks = 0;
                     return
                 }
             };

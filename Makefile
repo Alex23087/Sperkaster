@@ -11,7 +11,7 @@ MELLOS_DIR := /home/perkelo/projects/other/MellOs
 all: $(OUT_DIR)/sperkaster
 
 $(OUT_DIR)/main.c: $(SRC_DIR)/main.perk | $(OUT_DIR)
-	perkc --static $< -o $@
+	perkc --static --c-compiler /usr/local/i386elfgcc/bin/i386-elf-gcc --cflags="-ffreestanding -m32 -fno-builtin -fno-stack-protector -fno-pic -Wno-error -DVGA_VESA -DHRES=600 -DVRES=400 -DBPP=4 -DWINDOW_DRAG_NORMAL" $< -o $@
 
 # Copy non-.perk files from src to out
 $(OUT_DIR)/%.h: $(SRC_DIR)/%.h | $(OUT_DIR)

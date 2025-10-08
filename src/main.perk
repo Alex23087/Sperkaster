@@ -3,16 +3,16 @@ open "geometry.perk"
 
 extern vga_fb: Framebuffer*
 
-let pixel_size: int = 2
-let hres: uint32_t = cast(uint32_t, 600 / 2)
-let vres: uint32_t = cast(uint32_t, 400 / 2)
+let pixel_size: int = 4
+let hres: uint32_t = cast(uint32_t, 1270 / 4)
+let vres: uint32_t = cast(uint32_t, 770 / 4)
 let sky_colour: HDColour = make HDColour (r = 0x90 << 8, g = 0xe3 << 8, b = 0xfc << 8, a = 255 << 8)
 let no_colour: HDColour = make HDColour (r = 0, g = 0, b = 0, a = 65535)
 
 // Number of rays to cast per pixel
-let num_rays: int = 5
+let num_rays: int = 1
 // Number of times a ray can bounce
-let num_bounces: int = 10
+let num_bounces: int = 20
 // Amount to scatter rays
 let scatter_amount: float = 0.001
 // Bias to avoid acne
@@ -23,7 +23,7 @@ let ticks: int = 0
 let animate: bool = true
 let done: bool = false
 // Sleep between frames
-let sleep_time: int = 1
+let sleep_time: int = 0
 
 fun get_fb(w: Window*): Framebuffer* {
     let fb: Framebuffer* = cast(Framebuffer*, 0);
@@ -286,14 +286,41 @@ fun sperkaster(s: char*): void {
                 fb_set_pixel(x, y, colour, fb);
 
                 let c:char = get_from_kb_buffer();
-                if (c == 'q') {
+                if (c == 0) {skip}
+                else if (c == 'q') {
                     if (in_vell) {
                         destroy_window(w);
                     };
                     printf("%d ticks rendered\n", ticks);
                     ticks = 0;
                     return
-                }
+                } else if (c == ']') {
+                    num_rays = num_rays + 1;
+                    inverse_num_rays = 1.0 / cast(float, num_rays);
+                } else if (c == '[' && num_rays > 1) {
+                    num_rays = num_rays - 1;
+                    inverse_num_rays = 1.0 / cast(float, num_rays);
+                } else if (c == '-') {
+                    pixel_size = pixel_size + 2;
+                    hres = cast(uint32_t, 1270 / (pixel_size));
+                    vres = cast(uint32_t, 770 / (pixel_size));
+                    if (in_vell) {
+                        destroy_window(w);
+                        w = create_window_with_size("Sperkaster", hres * pixel_size, vres * pixel_size);
+                        fb = get_fb(w);
+                        set_window_dirty(w);
+                    };
+                } else if (c == '=' && pixel_size > 2) {
+                    pixel_size = pixel_size - 2;
+                    hres = cast(uint32_t, 1270 / (pixel_size));
+                    vres = cast(uint32_t, 770 / (pixel_size));
+                    if (in_vell) {
+                        destroy_window(w);
+                        w = create_window_with_size("Sperkaster", hres * pixel_size, vres * pixel_size);
+                        fb = get_fb(w);
+                        set_window_dirty(w);
+                    };
+                };
             };
         };
         if(in_vell) {

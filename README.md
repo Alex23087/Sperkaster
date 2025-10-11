@@ -17,7 +17,7 @@ Currently supported materials:
 - Refractive (glass)
 
 ## Building
-Requires the [Perk compiler](https://github.com/Alex23087/Perk), specifically on the [sperkaster-patches](https://github.com/Alex23087/Perk/tree/sperkaster-patches) branch.
+Requires the [Perk compiler](https://github.com/Alex23087/Perk), specifically on the [devel](https://github.com/Alex23087/Perk/tree/devel) branch, as Sperkaster uses some features that are still experimental.
 
 Also requires the latest version of the [MellOS](https://github.com/mell-o-tron/MellOs) kernel and build environment. The current version of MellOS already includes the latest version of Sperkaster, so there is no need to build it, unless you want to modify it.
 

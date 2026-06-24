@@ -24,3 +24,6 @@ Also requires the latest version of the [MellOS](https://github.com/mell-o-tron/
 After sorting out those requirements, you need to edit `src/includes.h` to point to your MellOS source tree, and edit `Makefile` accordingly.
 
 Then, run `make run`.
+
+## Why is it called `sperkaster`?
+It's a silly portmanteau of spellcaster + perk + raycaster
